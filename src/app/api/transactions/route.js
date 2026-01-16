@@ -36,6 +36,11 @@ export async function GET(request) {
       query.customerId = customerId;
     }
 
+    const affectsAachiMasala = searchParams.get('affectsAachiMasala');
+    if (affectsAachiMasala === 'true') {
+      query.affectsAachiMasala = true;
+    }
+
     if (fromDate || toDate) {
       query.date = {};
       if (fromDate) {
@@ -79,7 +84,7 @@ export async function POST(request) {
     }
 
     // Validate transaction type
-    const validTypes = ['CUSTOMER_PURCHASE', 'PAYMENT_RECEIVED', 'OWN_PURCHASE', 'BANK_CREDIT', 'BANK_DEBIT'];
+    const validTypes = ['CUSTOMER_PURCHASE', 'PAYMENT_RECEIVED', 'OWN_PURCHASE', 'BANK_CREDIT', 'BANK_DEBIT', 'AACHI_MASALA_CREDIT', 'AACHI_MASALA_PURCHASE'];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: 'Invalid transaction type' }, { status: 400 });
     }

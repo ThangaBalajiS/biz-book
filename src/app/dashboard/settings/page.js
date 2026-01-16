@@ -14,6 +14,10 @@ export default function SettingsPage() {
     openingBankBalance: '',
     openingBalanceDate: new Date().toISOString().split('T')[0],
   });
+  const [aachiMasalaForm, setAachiMasalaForm] = useState({
+    openingAachiMasalaBalance: '',
+    openingAachiMasalaBalanceDate: new Date().toISOString().split('T')[0],
+  });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -37,6 +41,12 @@ export default function SettingsPage() {
         openingBankBalance: settingsData.openingBankBalance || '',
         openingBalanceDate: settingsData.openingBalanceDate 
           ? new Date(settingsData.openingBalanceDate).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0],
+      });
+      setAachiMasalaForm({
+        openingAachiMasalaBalance: settingsData.openingAachiMasalaBalance || '',
+        openingAachiMasalaBalanceDate: settingsData.openingAachiMasalaBalanceDate 
+          ? new Date(settingsData.openingAachiMasalaBalanceDate).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0],
       });
     } catch (err) {
@@ -69,6 +79,34 @@ export default function SettingsPage() {
         const data = await res.json();
         setSettings(data);
         showMessage('Opening balance saved successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+      showMessage('Failed to save settings', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveAachiMasalaBalance = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...settings,
+          openingAachiMasalaBalance: parseFloat(aachiMasalaForm.openingAachiMasalaBalance) || 0,
+          openingAachiMasalaBalanceDate: aachiMasalaForm.openingAachiMasalaBalanceDate,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data);
+        showMessage('Aachi Masala opening balance saved successfully!');
       }
     } catch (err) {
       console.error('Failed to save settings:', err);
@@ -186,6 +224,36 @@ export default function SettingsPage() {
             </div>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
               {submitting ? 'Saving...' : 'Save Balance'}
+            </button>
+          </form>
+        </div>
+
+        <div className="card">
+          <h2 className="card-title" style={{ marginBottom: '1.5rem' }}>Aachi Masala Opening Balance</h2>
+          
+          <form onSubmit={handleSaveAachiMasalaBalance}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Opening Balance (₹)</label>
+                <input
+                  type="number"
+                  value={aachiMasalaForm.openingAachiMasalaBalance}
+                  onChange={(e) => setAachiMasalaForm({ ...aachiMasalaForm, openingAachiMasalaBalance: e.target.value })}
+                  placeholder="Enter opening balance"
+                  step="0.01"
+                />
+              </div>
+              <div className="form-group">
+                <label>As of Date</label>
+                <input
+                  type="date"
+                  value={aachiMasalaForm.openingAachiMasalaBalanceDate}
+                  onChange={(e) => setAachiMasalaForm({ ...aachiMasalaForm, openingAachiMasalaBalanceDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save Aachi Masala Balance'}
             </button>
           </form>
         </div>

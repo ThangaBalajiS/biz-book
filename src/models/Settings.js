@@ -15,6 +15,14 @@ const SettingsSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  openingAachiMasalaBalance: {
+    type: Number,
+    default: 0,
+  },
+  openingAachiMasalaBalanceDate: {
+    type: Date,
+    default: Date.now,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

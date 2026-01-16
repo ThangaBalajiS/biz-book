@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function BankStatementPage() {
+export default function AachiMasalaPage() {
   const searchParams = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState('credit'); // 'credit' or 'debit'
+  const [modalType, setModalType] = useState('credit'); // 'credit' or 'purchase'
   const [formData, setFormData] = useState({
     amount: '',
     date: new Date().toISOString().split('T')[0],
@@ -22,7 +22,7 @@ export default function BankStatementPage() {
     
     // Check for action param
     const action = searchParams.get('action');
-    if (action === 'credit' || action === 'debit') {
+    if (action === 'credit' || action === 'purchase') {
       setModalType(action);
       setShowModal(true);
     }
@@ -31,7 +31,7 @@ export default function BankStatementPage() {
   const fetchData = async () => {
     try {
       const [txnRes, settingsRes] = await Promise.all([
-        fetch('/api/transactions?affectsBank=true'),
+        fetch('/api/transactions?affectsAachiMasala=true'),
         fetch('/api/settings'),
       ]);
       
@@ -56,7 +56,7 @@ export default function BankStatementPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: modalType === 'credit' ? 'BANK_CREDIT' : 'BANK_DEBIT',
+          type: modalType === 'credit' ? 'AACHI_MASALA_CREDIT' : 'AACHI_MASALA_PURCHASE',
           amount: parseFloat(formData.amount),
           date: formData.date,
           description: formData.description,
@@ -106,7 +106,7 @@ export default function BankStatementPage() {
 
   // Calculate running balance
   const calculateRunningBalance = () => {
-    const openingBalance = settings?.openingBankBalance || 0;
+    const openingBalance = settings?.openingAachiMasalaBalance || 0;
     let balance = openingBalance;
     
     // Sort by date ascending, then by createdAt ascending for consistent ordering
@@ -118,7 +118,7 @@ export default function BankStatementPage() {
     });
     
     return sorted.map(txn => {
-      if (['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type)) {
+      if (txn.type === 'AACHI_MASALA_CREDIT') {
         balance += txn.amount;
       } else {
         balance -= txn.amount;
@@ -129,11 +129,8 @@ export default function BankStatementPage() {
 
   const getTypeLabel = (type) => {
     const labels = {
-      PAYMENT_RECEIVED: 'Payment Received',
-      BANK_CREDIT: 'Bank Credit',
-      OWN_PURCHASE: 'Purchase',
-      BANK_DEBIT: 'Bank Debit',
-      AACHI_MASALA_CREDIT: 'Aachi Masala Credit',
+      AACHI_MASALA_CREDIT: 'Credit (Transfer from Bank)',
+      AACHI_MASALA_PURCHASE: 'Purchase',
     };
     return labels[type] || type;
   };
@@ -149,24 +146,24 @@ export default function BankStatementPage() {
   const transactionsWithBalance = calculateRunningBalance();
   const currentBalance = transactions.length > 0 
     ? transactionsWithBalance[0]?.runningBalance 
-    : settings?.openingBankBalance || 0;
+    : settings?.openingAachiMasalaBalance || 0;
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Bank Statement</h1>
+        <h1 className="page-title">Aachi Masala Account</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             className="btn btn-success"
             onClick={() => { setModalType('credit'); setShowModal(true); }}
           >
-            + Credit
+            + Credit (Add Money)
           </button>
           <button
             className="btn btn-danger"
-            onClick={() => { setModalType('debit'); setShowModal(true); }}
+            onClick={() => { setModalType('purchase'); setShowModal(true); }}
           >
-            - Debit
+            - Purchase
           </button>
         </div>
       </div>
@@ -174,7 +171,7 @@ export default function BankStatementPage() {
       <div className="stats-grid" style={{ marginBottom: '2rem' }}>
         <div className="stat-card">
           <div className="stat-label">Opening Balance</div>
-          <div className="stat-value">{formatCurrency(settings?.openingBankBalance || 0)}</div>
+          <div className="stat-value">{formatCurrency(settings?.openingAachiMasalaBalance || 0)}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Current Balance</div>
@@ -202,7 +199,7 @@ export default function BankStatementPage() {
               </thead>
               <tbody>
                 {transactionsWithBalance.map((txn) => {
-                  const isCredit = ['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type);
+                  const isCredit = txn.type === 'AACHI_MASALA_CREDIT';
                   return (
                     <tr key={txn._id}>
                       <td>{formatDate(txn.date)}</td>
@@ -211,7 +208,6 @@ export default function BankStatementPage() {
                           <span className={`badge ${isCredit ? 'badge-success' : 'badge-danger'}`} style={{ marginRight: '0.5rem' }}>
                             {getTypeLabel(txn.type)}
                           </span>
-                          {txn.customerId?.name && <strong>{txn.customerId.name}</strong>}
                           {txn.description && <span style={{ color: 'var(--text-secondary)' }}> - {txn.description}</span>}
                         </div>
                       </td>
@@ -231,15 +227,13 @@ export default function BankStatementPage() {
                         </span>
                       </td>
                       <td>
-                        {['BANK_CREDIT', 'BANK_DEBIT'].includes(txn.type) && (
-                          <button
-                            className="btn btn-icon btn-secondary"
-                            onClick={() => handleDelete(txn._id)}
-                            title="Delete"
-                          >
-                            🗑️
-                          </button>
-                        )}
+                        <button
+                          className="btn btn-icon btn-secondary"
+                          onClick={() => handleDelete(txn._id)}
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
                       </td>
                     </tr>
                   );
@@ -249,8 +243,8 @@ export default function BankStatementPage() {
           </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-state-icon">🏦</div>
-            <div className="empty-state-title">No bank transactions yet</div>
+            <div className="empty-state-icon">🌶️</div>
+            <div className="empty-state-title">No transactions yet</div>
             <p>Add your first transaction to get started</p>
           </div>
         )}
@@ -261,7 +255,7 @@ export default function BankStatementPage() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
-                {modalType === 'credit' ? 'Add Bank Credit' : 'Add Bank Debit'}
+                {modalType === 'credit' ? 'Add Credit (Transfer from Bank)' : 'Add Purchase'}
               </h2>
               <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
             </div>
@@ -309,7 +303,7 @@ export default function BankStatementPage() {
                   className={`btn ${modalType === 'credit' ? 'btn-success' : 'btn-danger'}`}
                   disabled={submitting}
                 >
-                  {submitting ? 'Saving...' : modalType === 'credit' ? 'Add Credit' : 'Add Debit'}
+                  {submitting ? 'Saving...' : modalType === 'credit' ? 'Add Credit' : 'Add Purchase'}
                 </button>
               </div>
             </form>

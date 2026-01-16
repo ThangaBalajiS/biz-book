@@ -48,6 +48,8 @@ export default function DashboardPage() {
       OWN_PURCHASE: 'Purchase',
       BANK_CREDIT: 'Bank Credit',
       BANK_DEBIT: 'Bank Debit',
+      AACHI_MASALA_CREDIT: 'Aachi Masala Credit',
+      AACHI_MASALA_PURCHASE: 'Aachi Masala Purchase',
     };
     return labels[type] || type;
   };
@@ -99,6 +101,13 @@ export default function DashboardPage() {
             {data?.customerCount || 0}
           </div>
         </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Aachi Masala Balance</div>
+          <div className={`stat-value ${data?.aachiMasalaBalance >= 0 ? 'positive' : 'negative'}`}>
+            {formatCurrency(data?.aachiMasalaBalance || 0)}
+          </div>
+        </div>
       </div>
 
       <div className={styles.quickActions}>
@@ -115,6 +124,10 @@ export default function DashboardPage() {
           <Link href="/dashboard/purchases?action=add" className={styles.actionCard}>
             <span className={styles.actionIcon}>🛒</span>
             <span className={styles.actionLabel}>Own Purchase</span>
+          </Link>
+          <Link href="/dashboard/aachi-masala?action=purchase" className={styles.actionCard}>
+            <span className={styles.actionIcon}>🌶️</span>
+            <span className={styles.actionLabel}>Aachi Masala Purchase</span>
           </Link>
         </div>
       </div>

@@ -10,6 +10,7 @@ import styles from './layout.module.css';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/dashboard/bank', label: 'Bank Statement', icon: '🏦' },
+  { href: '/dashboard/aachi-masala', label: 'Aachi Masala', icon: '🌶️' },
   { href: '/dashboard/purchases', label: 'Purchases', icon: '🛒' },
   { href: '/dashboard/outstanding', label: 'Outstanding', icon: '💰' },
   { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },

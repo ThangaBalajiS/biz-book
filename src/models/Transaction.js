@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const TransactionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['CUSTOMER_PURCHASE', 'PAYMENT_RECEIVED', 'OWN_PURCHASE', 'BANK_CREDIT', 'BANK_DEBIT'],
+    enum: ['CUSTOMER_PURCHASE', 'PAYMENT_RECEIVED', 'OWN_PURCHASE', 'BANK_CREDIT', 'BANK_DEBIT', 'AACHI_MASALA_CREDIT', 'AACHI_MASALA_PURCHASE'],
     required: true,
   },
   amount: {
@@ -32,6 +32,10 @@ const TransactionSchema = new mongoose.Schema({
     default: false,
   },
   affectsOutstanding: {
+    type: Boolean,
+    default: false,
+  },
+  affectsAachiMasala: {
     type: Boolean,
     default: false,
   },
@@ -65,6 +69,17 @@ TransactionSchema.pre('save', function() {
     case 'BANK_DEBIT':
       this.affectsBank = true;
       this.affectsOutstanding = false;
+      this.affectsAachiMasala = false;
+      break;
+    case 'AACHI_MASALA_CREDIT':
+      this.affectsBank = true; // Debit from bank
+      this.affectsOutstanding = false;
+      this.affectsAachiMasala = true; // Credit to Aachi Masala
+      break;
+    case 'AACHI_MASALA_PURCHASE':
+      this.affectsBank = false;
+      this.affectsOutstanding = false;
+      this.affectsAachiMasala = true; // Debit from Aachi Masala
       break;
   }
 });

@@ -30,7 +30,7 @@ export async function GET() {
     bankTransactions.forEach(txn => {
       if (['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type)) {
         bankBalance += txn.amount;
-      } else if (['OWN_PURCHASE', 'BANK_DEBIT'].includes(txn.type)) {
+      } else if (['OWN_PURCHASE', 'BANK_DEBIT', 'AACHI_MASALA_CREDIT'].includes(txn.type)) {
         bankBalance -= txn.amount;
       }
     });
@@ -66,11 +66,28 @@ export async function GET() {
       .sort({ date: -1, createdAt: -1 })
       .limit(5);
 
+    // Get Aachi Masala balance
+    const openingAachiMasalaBalance = settings?.openingAachiMasalaBalance || 0;
+    const aachiMasalaTransactions = await Transaction.find({
+      userId: session.user.id,
+      affectsAachiMasala: true,
+    });
+
+    let aachiMasalaBalance = openingAachiMasalaBalance;
+    aachiMasalaTransactions.forEach(txn => {
+      if (txn.type === 'AACHI_MASALA_CREDIT') {
+        aachiMasalaBalance += txn.amount;
+      } else if (txn.type === 'AACHI_MASALA_PURCHASE') {
+        aachiMasalaBalance -= txn.amount;
+      }
+    });
+
     return NextResponse.json({
       bankBalance,
       totalOutstanding,
       totalPurchases,
       customerCount,
+      aachiMasalaBalance,
       recentTransactions,
     });
   } catch (error) {

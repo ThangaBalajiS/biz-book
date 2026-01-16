@@ -21,6 +21,8 @@ export async function GET() {
         userId: session.user.id,
         openingBankBalance: 0,
         openingBalanceDate: new Date(),
+        openingAachiMasalaBalance: 0,
+        openingAachiMasalaBalanceDate: new Date(),
       });
     }
 
@@ -39,7 +41,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { openingBankBalance, openingBalanceDate } = await request.json();
+    const { openingBankBalance, openingBalanceDate, openingAachiMasalaBalance, openingAachiMasalaBalanceDate } = await request.json();
 
     await dbConnect();
 
@@ -48,6 +50,8 @@ export async function PUT(request) {
       {
         openingBankBalance: openingBankBalance ?? 0,
         openingBalanceDate: openingBalanceDate ? new Date(openingBalanceDate) : new Date(),
+        openingAachiMasalaBalance: openingAachiMasalaBalance ?? 0,
+        openingAachiMasalaBalanceDate: openingAachiMasalaBalanceDate ? new Date(openingAachiMasalaBalanceDate) : new Date(),
       },
       { new: true, upsert: true }
     );
