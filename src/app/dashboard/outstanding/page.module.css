@@ -1,0 +1,97 @@
+.container {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.customerList {
+  min-width: 0;
+}
+
+.customers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.customerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.customerItem:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+.customerItem.active {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.customerItem.active .customerName {
+  color: white;
+}
+
+.customerItem.active .customerPhone {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.customerItem.active .outstanding {
+  color: white;
+}
+
+.customerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.customerName {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.customerPhone {
+  font-size: 0.813rem;
+  color: var(--text-muted);
+}
+
+.outstanding {
+  font-weight: 600;
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  color: var(--text-secondary);
+}
+
+.outstanding.hasOutstanding {
+  color: var(--accent-danger);
+}
+
+.customerDetail {
+  min-width: 0;
+}
+
+.outstandingBadge {
+  padding: 0.5rem 1rem;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.outstandingBadge strong {
+  color: var(--text-primary);
+}
