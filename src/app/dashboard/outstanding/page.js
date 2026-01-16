@@ -23,8 +23,12 @@ export default function OutstandingPage() {
   useEffect(() => {
     fetchCustomers();
     
-    if (searchParams.get('action') === 'payment') {
+    const action = searchParams.get('action');
+    if (action === 'payment') {
       setModalType('payment');
+      setShowModal(true);
+    } else if (action === 'purchase') {
+      setModalType('purchase');
       setShowModal(true);
     }
   }, [searchParams]);

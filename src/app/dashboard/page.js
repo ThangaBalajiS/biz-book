@@ -104,21 +104,17 @@ export default function DashboardPage() {
       <div className={styles.quickActions}>
         <h2 className={styles.sectionTitle}>Quick Actions</h2>
         <div className={styles.actionGrid}>
-          <Link href="/dashboard/bank?action=credit" className={styles.actionCard}>
-            <span className={styles.actionIcon}>💵</span>
-            <span className={styles.actionLabel}>Add Bank Credit</span>
-          </Link>
-          <Link href="/dashboard/bank?action=debit" className={styles.actionCard}>
-            <span className={styles.actionIcon}>💸</span>
-            <span className={styles.actionLabel}>Add Bank Debit</span>
-          </Link>
-          <Link href="/dashboard/purchases?action=add" className={styles.actionCard}>
-            <span className={styles.actionIcon}>🛒</span>
-            <span className={styles.actionLabel}>Add Purchase</span>
+          <Link href="/dashboard/outstanding?action=purchase" className={styles.actionCard}>
+            <span className={styles.actionIcon}>🛍️</span>
+            <span className={styles.actionLabel}>Customer Purchase</span>
           </Link>
           <Link href="/dashboard/outstanding?action=payment" className={styles.actionCard}>
             <span className={styles.actionIcon}>✅</span>
-            <span className={styles.actionLabel}>Record Payment</span>
+            <span className={styles.actionLabel}>Payment Received</span>
+          </Link>
+          <Link href="/dashboard/purchases?action=add" className={styles.actionCard}>
+            <span className={styles.actionIcon}>🛒</span>
+            <span className={styles.actionLabel}>Own Purchase</span>
           </Link>
         </div>
       </div>

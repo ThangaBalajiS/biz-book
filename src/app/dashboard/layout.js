@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
@@ -20,6 +20,7 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { theme, toggleTheme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Redirect to login if unauthenticated
   useEffect(() => {
@@ -27,6 +28,11 @@ export default function DashboardLayout({ children }) {
       router.push('/login');
     }
   }, [status, router]);
+
+  // Close sidebar when route changes
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   if (status === 'loading' || status === 'unauthenticated') {
     return (
@@ -41,9 +47,35 @@ export default function DashboardLayout({ children }) {
     router.push('/login');
   };
 
+  const handleNavClick = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <div className={styles.layout}>
-      <aside className={styles.sidebar}>
+      {/* Mobile Header */}
+      <header className={styles.mobileHeader}>
+        <button 
+          className={styles.hamburger}
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label="Toggle menu"
+        >
+          <span className={styles.hamburgerLine}></span>
+          <span className={styles.hamburgerLine}></span>
+          <span className={styles.hamburgerLine}></span>
+        </button>
+        <div className={styles.mobileLogoText}>📒 Biz Book</div>
+      </header>
+
+      {/* Overlay */}
+      {sidebarOpen && (
+        <div 
+          className={styles.overlay} 
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ''}`}>
         <div className={styles.logo}>
           <span className={styles.logoIcon}>📒</span>
           <span className={styles.logoText}>Biz Book</span>
@@ -55,6 +87,7 @@ export default function DashboardLayout({ children }) {
               key={item.href}
               href={item.href}
               className={`${styles.navItem} ${pathname === item.href ? styles.active : ''}`}
+              onClick={handleNavClick}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               <span className={styles.navLabel}>{item.label}</span>
