@@ -121,10 +121,6 @@ export default function DashboardPage() {
             <span className={styles.actionIcon}>✅</span>
             <span className={styles.actionLabel}>Payment Received</span>
           </Link>
-          <Link href="/dashboard/purchases?action=add" className={styles.actionCard}>
-            <span className={styles.actionIcon}>🛒</span>
-            <span className={styles.actionLabel}>Own Purchase</span>
-          </Link>
           <Link href="/dashboard/aachi-masala?action=purchase" className={styles.actionCard}>
             <span className={styles.actionIcon}>🌶️</span>
             <span className={styles.actionLabel}>Aachi Masala Purchase</span>

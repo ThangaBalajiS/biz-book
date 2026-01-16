@@ -137,6 +137,73 @@ export default function OutstandingPage() {
 
   const totalOutstanding = customers.reduce((sum, c) => sum + (c.outstanding || 0), 0);
 
+  // Format currency for PDF (using Rs instead of ₹ symbol for better font support)
+  const formatCurrencyForPDF = (amount) => {
+    return 'Rs ' + new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const handleDownloadPDF = async () => {
+    // Dynamically import jspdf and jspdf-autotable
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Outstanding Report', 14, 22);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`, 14, 30);
+    
+    // Table data - without phone
+    const tableData = customers
+      .filter(c => (c.outstanding || 0) > 0)
+      .sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0))
+      .map((customer, index) => [
+        index + 1,
+        customer.name,
+        formatCurrencyForPDF(customer.outstanding || 0),
+      ]);
+    
+    // Add table
+    autoTable(doc, {
+      startY: 38,
+      head: [['#', 'Customer Name', 'Outstanding']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 15 },
+        2: { halign: 'right', fontStyle: 'bold' },
+      },
+      foot: [['', 'Total:', formatCurrencyForPDF(totalOutstanding)]],
+      footStyles: {
+        fillColor: [240, 240, 240],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+      },
+    });
+    
+    // Save the PDF
+    doc.save(`outstanding-report-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -150,6 +217,13 @@ export default function OutstandingPage() {
       <div className="page-header">
         <h1 className="page-title">Outstanding</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleDownloadPDF}
+            title="Download PDF"
+          >
+            📄 Download PDF
+          </button>
           <button
             className="btn btn-primary"
             onClick={() => { setModalType('purchase'); setShowModal(true); }}

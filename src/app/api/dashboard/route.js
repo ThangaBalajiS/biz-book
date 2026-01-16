@@ -30,7 +30,7 @@ export async function GET() {
     bankTransactions.forEach(txn => {
       if (['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type)) {
         bankBalance += txn.amount;
-      } else if (['OWN_PURCHASE', 'BANK_DEBIT', 'AACHI_MASALA_CREDIT'].includes(txn.type)) {
+      } else if (['BANK_DEBIT', 'AACHI_MASALA_CREDIT'].includes(txn.type)) {
         bankBalance -= txn.amount;
       }
     });
@@ -50,12 +50,12 @@ export async function GET() {
       }
     });
 
-    // Get total purchases (OWN_PURCHASE only)
-    const ownPurchases = await Transaction.find({
+    // Get total purchases (CUSTOMER_PURCHASE + AACHI_MASALA_PURCHASE)
+    const allPurchases = await Transaction.find({
       userId: session.user.id,
-      type: 'OWN_PURCHASE',
+      type: { $in: ['CUSTOMER_PURCHASE', 'AACHI_MASALA_PURCHASE'] },
     });
-    const totalPurchases = ownPurchases.reduce((sum, txn) => sum + txn.amount, 0);
+    const totalPurchases = allPurchases.reduce((sum, txn) => sum + txn.amount, 0);
 
     // Get customer count
     const customerCount = await Customer.countDocuments({ userId: session.user.id });
