@@ -95,3 +95,34 @@
 .outstandingBadge strong {
   color: var(--text-primary);
 }
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .container {
+    gap: 1rem;
+  }
+  
+  .customerItem {
+    padding: 0.875rem;
+    min-height: 60px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .customerName {
+    font-size: 0.9375rem;
+  }
+  
+  .customerPhone {
+    font-size: 0.75rem;
+  }
+  
+  .outstanding {
+    font-size: 0.875rem;
+  }
+  
+  .outstandingBadge {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
