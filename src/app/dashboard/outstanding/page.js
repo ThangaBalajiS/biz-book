@@ -232,7 +232,7 @@ export default function OutstandingPage() {
     const tableData = customersWithBillDate.map((customer) => [
       formatDateForPDF(customer.billDate),
       customer.name.toUpperCase(),
-      (customer.outstanding || 0).toString(),
+      (customer.outstanding || 0).toFixed(2),
       calculateDays(customer.billDate).toString(),
     ]);
     
@@ -291,7 +291,7 @@ export default function OutstandingPage() {
     doc.rect(114, finalY, 60, 12, 'F');
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    doc.text(totalOutstanding.toString(), 144, finalY + 8, { align: 'center' });
+    doc.text(totalOutstanding.toFixed(2), 144, finalY + 8, { align: 'center' });
     
     // Draw bottom blue border
     doc.setFillColor(0, 128, 192);
