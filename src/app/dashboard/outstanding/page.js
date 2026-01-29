@@ -228,11 +228,19 @@ export default function OutstandingPage() {
     // Sort by outstanding descending
     customersWithBillDate.sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0));
     
+    // Format number with Indian comma system
+    const formatIndianNumber = (num) => {
+      return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(num);
+    };
+    
     // Table data
     const tableData = customersWithBillDate.map((customer) => [
       formatDateForPDF(customer.billDate),
       customer.name.toUpperCase(),
-      (customer.outstanding || 0).toFixed(2),
+      formatIndianNumber(customer.outstanding || 0),
       calculateDays(customer.billDate).toString(),
     ]);
     
@@ -291,7 +299,7 @@ export default function OutstandingPage() {
     doc.rect(114, finalY, 60, 12, 'F');
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    doc.text(totalOutstanding.toFixed(2), 144, finalY + 8, { align: 'center' });
+    doc.text(new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalOutstanding), 144, finalY + 8, { align: 'center' });
     
     // Draw bottom blue border
     doc.setFillColor(0, 128, 192);
