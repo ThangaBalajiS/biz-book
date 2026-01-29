@@ -7,6 +7,11 @@ const SettingsSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  businessName: {
+    type: String,
+    default: '',
+    trim: true,
+  },
   openingBankBalance: {
     type: Number,
     default: 0,

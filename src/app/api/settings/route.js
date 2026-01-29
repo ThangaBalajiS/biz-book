@@ -41,13 +41,14 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { openingBankBalance, openingBalanceDate, openingAachiMasalaBalance, openingAachiMasalaBalanceDate } = await request.json();
+    const { openingBankBalance, openingBalanceDate, openingAachiMasalaBalance, openingAachiMasalaBalanceDate, businessName } = await request.json();
 
     await dbConnect();
 
     const settings = await Settings.findOneAndUpdate(
       { userId: session.user.id },
       {
+        ...(businessName !== undefined && { businessName }),
         openingBankBalance: openingBankBalance ?? 0,
         openingBalanceDate: openingBalanceDate ? new Date(openingBalanceDate) : new Date(),
         openingAachiMasalaBalance: openingAachiMasalaBalance ?? 0,

@@ -150,58 +150,155 @@ export default function OutstandingPage() {
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     
+    // Fetch business name from settings
+    let businessName = 'YOUR BUSINESS NAME';
+    try {
+      const settingsRes = await fetch('/api/settings');
+      const settingsData = await settingsRes.json();
+      if (settingsData.businessName) {
+        businessName = settingsData.businessName.toUpperCase();
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings for PDF:', err);
+    }
+    
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const today = new Date();
     
-    // Title
-    doc.setFontSize(20);
-    doc.text('Outstanding Report', 14, 22);
+    // Format date as DD-MM-YYYY
+    const formatDateForPDF = (date) => {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).replace(/\//g, '-');
+    };
     
-    // Date
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`, 14, 30);
+    // Calculate days difference
+    const calculateDays = (date) => {
+      const billDate = new Date(date);
+      const diffTime = Math.abs(today - billDate);
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
     
-    // Table data - without phone
-    const tableData = customers
-      .filter(c => (c.outstanding || 0) > 0)
-      .sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0))
-      .map((customer, index) => [
-        index + 1,
-        customer.name,
-        formatCurrencyForPDF(customer.outstanding || 0),
-      ]);
+    // Draw top blue border
+    doc.setFillColor(0, 128, 192);
+    doc.rect(10, 10, pageWidth - 20, 3, 'F');
+    
+    // Business Name Header (dynamic)
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(204, 102, 0); // Orange color
+    doc.text(businessName, pageWidth / 2, 28, { align: 'center' });
+    
+    // AGENCY OUTSTANDING DETAILS subtitle
+    doc.setFontSize(14);
+    doc.setTextColor(0, 128, 128); // Teal color
+    doc.text('AGENCY OUTSTANDING DETAILS', 14, 42);
+    
+    // Current date on right
+    doc.setFontSize(12);
+    doc.setTextColor(128, 0, 128); // Purple color
+    doc.text(formatDateForPDF(today), pageWidth - 14, 42, { align: 'right' });
+    
+    // Prepare table data with bill dates and days calculation
+    // We need to fetch the last transaction date for each customer
+    const customersWithBillDate = await Promise.all(
+      customers
+        .filter(c => (c.outstanding || 0) > 0)
+        .map(async (customer) => {
+          // Fetch customer details to get last transaction date
+          try {
+            const res = await fetch(`/api/customers/${customer._id}`);
+            const data = await res.json();
+            // Find the last CUSTOMER_PURCHASE transaction
+            const lastPurchase = data.transactions?.find(t => t.type === 'CUSTOMER_PURCHASE');
+            return {
+              ...customer,
+              billDate: lastPurchase?.date || customer.createdAt || today,
+            };
+          } catch {
+            return { ...customer, billDate: today };
+          }
+        })
+    );
+    
+    // Sort by outstanding descending
+    customersWithBillDate.sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0));
+    
+    // Table data
+    const tableData = customersWithBillDate.map((customer) => [
+      formatDateForPDF(customer.billDate),
+      customer.name.toUpperCase(),
+      (customer.outstanding || 0).toString(),
+      calculateDays(customer.billDate).toString(),
+    ]);
     
     // Add table
     autoTable(doc, {
-      startY: 38,
-      head: [['#', 'Customer Name', 'Outstanding']],
+      startY: 50,
+      head: [['BILL DATE', 'AGENCY', 'OUTSTANDING', 'NO. OF DAYS']],
       body: tableData,
-      theme: 'striped',
+      theme: 'plain',
+      styles: {
+        fontSize: 10,
+        cellPadding: 4,
+        lineColor: [0, 128, 192],
+        lineWidth: 0.5,
+      },
       headStyles: {
-        fillColor: [59, 130, 246],
-        textColor: 255,
+        fillColor: [255, 255, 255],
+        textColor: [128, 128, 128],
         fontStyle: 'bold',
+        halign: 'center',
+        lineColor: [0, 128, 192],
+        lineWidth: { top: 1, bottom: 1, left: 0.5, right: 0.5 },
       },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 15 },
-        2: { halign: 'right', fontStyle: 'bold' },
+        0: { halign: 'center', cellWidth: 30 },
+        1: { halign: 'left', fontStyle: 'bold', textColor: [0, 100, 0] },
+        2: { halign: 'right', textColor: [128, 0, 128] },
+        3: { halign: 'center', fontStyle: 'bold', textColor: [255, 0, 0] },
       },
-      foot: [['', 'Total:', formatCurrencyForPDF(totalOutstanding)]],
-      footStyles: {
-        fillColor: [240, 240, 240],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
+      alternateRowStyles: {
+        fillColor: [240, 248, 255],
+      },
+      didDrawCell: (data) => {
+        // Add borders
+        if (data.section === 'body' || data.section === 'head') {
+          doc.setDrawColor(0, 128, 192);
+          doc.setLineWidth(0.5);
+          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height);
+        }
       },
     });
     
+    // Get the Y position after the table
+    const finalY = doc.lastAutoTable.finalY + 10;
+    
+    // TOTAL OUTSTANDING footer
+    doc.setFillColor(0, 128, 128);
+    doc.rect(14, finalY, 100, 12, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('TOTAL OUTSTANDING', 20, finalY + 8);
+    
+    // Total amount box
+    doc.setFillColor(0, 100, 0);
+    doc.rect(114, finalY, 60, 12, 'F');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text(totalOutstanding.toString(), 144, finalY + 8, { align: 'center' });
+    
+    // Draw bottom blue border
+    doc.setFillColor(0, 128, 192);
+    doc.rect(10, finalY + 20, pageWidth - 20, 3, 'F');
+    
     // Save the PDF
-    doc.save(`outstanding-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`outstanding-report-${formatDateForPDF(today)}.pdf`);
   };
 
   if (loading) {

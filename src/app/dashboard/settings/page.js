@@ -18,6 +18,7 @@ export default function SettingsPage() {
     openingAachiMasalaBalance: '',
     openingAachiMasalaBalanceDate: new Date().toISOString().split('T')[0],
   });
+  const [businessNameForm, setBusinessNameForm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -49,6 +50,7 @@ export default function SettingsPage() {
           ? new Date(settingsData.openingAachiMasalaBalanceDate).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0],
       });
+      setBusinessNameForm(settingsData.businessName || '');
     } catch (err) {
       console.error('Failed to fetch data:', err);
     } finally {
@@ -111,6 +113,33 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Failed to save settings:', err);
       showMessage('Failed to save settings', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveBusinessName = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...settings,
+          businessName: businessNameForm.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data);
+        showMessage('Business name saved successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to save business name:', err);
+      showMessage('Failed to save business name', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -198,6 +227,28 @@ export default function SettingsPage() {
       )}
 
       <div className={styles.grid}>
+        <div className="card">
+          <h2 className="card-title" style={{ marginBottom: '1.5rem' }}>Business Name</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+            This name will appear on your Outstanding PDF reports.
+          </p>
+          
+          <form onSubmit={handleSaveBusinessName}>
+            <div className="form-group">
+              <label>Business Name</label>
+              <input
+                type="text"
+                value={businessNameForm}
+                onChange={(e) => setBusinessNameForm(e.target.value)}
+                placeholder="Enter your business name (e.g., PAARI VENTURES)"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save Business Name'}
+            </button>
+          </form>
+        </div>
+
         <div className="card">
           <h2 className="card-title" style={{ marginBottom: '1.5rem' }}>Opening Bank Balance</h2>
           
