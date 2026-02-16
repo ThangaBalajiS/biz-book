@@ -4,7 +4,7 @@ import dbConnect from '@/lib/db';
 import Customer from '@/models/Customer';
 import Transaction from '@/models/Transaction';
 
-// GET single customer with outstanding
+// GET single customer with outstanding (paginated transactions)
 export async function GET(request, { params }) {
   try {
     const session = await auth();
@@ -13,6 +13,10 @@ export async function GET(request, { params }) {
     }
 
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit')) || 10;
+    const skip = parseInt(searchParams.get('skip')) || 0;
+
     await dbConnect();
 
     const customer = await Customer.findOne({ _id: id, userId: session.user.id });
@@ -20,32 +24,46 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    // Get customer's transactions
+    // Calculate outstanding from all transactions using aggregation
+    const outstandingResult = await Transaction.aggregate([
+      { $match: { userId: customer.userId, customerId: customer._id } },
+      {
+        $group: {
+          _id: null,
+          purchases: {
+            $sum: { $cond: [{ $eq: ['$type', 'CUSTOMER_PURCHASE'] }, '$amount', 0] },
+          },
+          payments: {
+            $sum: { $cond: [{ $eq: ['$type', 'PAYMENT_RECEIVED'] }, '$amount', 0] },
+          },
+          total: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const outstanding = outstandingResult.length > 0
+      ? outstandingResult[0].purchases - outstandingResult[0].payments
+      : 0;
+    const total = outstandingResult.length > 0 ? outstandingResult[0].total : 0;
+
+    // Get paginated transactions
     const transactions = await Transaction.find({
       userId: session.user.id,
       customerId: id,
-    }).sort({ date: -1 });
-
-    // Calculate outstanding
-    let outstanding = 0;
-    transactions.forEach(txn => {
-      if (txn.type === 'CUSTOMER_PURCHASE') {
-        outstanding += txn.amount;
-      } else if (txn.type === 'PAYMENT_RECEIVED') {
-        outstanding -= txn.amount;
-      }
-    });
+    }).sort({ date: -1 }).skip(skip).limit(limit);
 
     return NextResponse.json({
       customer,
       transactions,
       outstanding,
+      total,
     });
   } catch (error) {
     console.error('Error fetching customer:', error);
     return NextResponse.json({ error: 'Failed to fetch customer' }, { status: 500 });
   }
 }
+
 
 // PUT update customer
 export async function PUT(request, { params }) {

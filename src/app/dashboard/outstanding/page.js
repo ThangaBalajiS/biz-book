@@ -10,6 +10,7 @@ export default function OutstandingPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('purchase'); // 'purchase' or 'payment'
   const [formData, setFormData] = useState({
@@ -57,12 +58,30 @@ export default function OutstandingPage() {
 
   const fetchCustomerDetail = async (customerId) => {
     try {
-      const res = await fetch(`/api/customers/${customerId}`);
+      const res = await fetch(`/api/customers/${customerId}?limit=10&skip=0`);
       const data = await res.json();
       setCustomerData(data);
       setSelectedCustomer(customerId);
     } catch (err) {
       console.error('Failed to fetch customer details:', err);
+    }
+  };
+
+  const loadMoreTransactions = async () => {
+    if (!selectedCustomer || !customerData) return;
+    setLoadingMore(true);
+    try {
+      const skip = customerData.transactions.length;
+      const res = await fetch(`/api/customers/${selectedCustomer}?limit=10&skip=${skip}`);
+      const data = await res.json();
+      setCustomerData(prev => ({
+        ...prev,
+        transactions: [...prev.transactions, ...data.transactions],
+      }));
+    } catch (err) {
+      console.error('Failed to load more transactions:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -150,17 +169,17 @@ export default function OutstandingPage() {
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     
-    // Fetch business name from settings
-    let businessName = 'YOUR BUSINESS NAME';
+    // Fetch all PDF data from server in a single request
+    let pdfData;
     try {
-      const settingsRes = await fetch('/api/settings');
-      const settingsData = await settingsRes.json();
-      if (settingsData.businessName) {
-        businessName = settingsData.businessName.toUpperCase();
-      }
+      const res = await fetch('/api/outstanding/pdf-data');
+      pdfData = await res.json();
     } catch (err) {
-      console.error('Failed to fetch settings for PDF:', err);
+      console.error('Failed to fetch PDF data:', err);
+      return;
     }
+    
+    const { businessName, totalOutstanding: serverTotal, customers: pdfCustomers } = pdfData;
     
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -210,7 +229,7 @@ export default function OutstandingPage() {
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(204, 102, 0); // Orange color
-    doc.text(businessName, pageWidth / 2, 28, { align: 'center' });
+    doc.text(businessName.toUpperCase(), pageWidth / 2, 28, { align: 'center' });
     
     // AGENCY OUTSTANDING DETAILS subtitle
     doc.setFontSize(14);
@@ -222,31 +241,8 @@ export default function OutstandingPage() {
     doc.setTextColor(128, 0, 128); // Purple color
     doc.text(formatDateForPDF(today), pageWidth - 14, 42, { align: 'right' });
     
-    // Fetch full data for all customers with outstanding > 0
-    const customersWithDetails = await Promise.all(
-      customers
-        .filter(c => (c.outstanding || 0) > 0)
-        .map(async (customer) => {
-          try {
-            const res = await fetch(`/api/customers/${customer._id}`);
-            const data = await res.json();
-            const lastPurchase = data.transactions?.find(t => t.type === 'CUSTOMER_PURCHASE');
-            return {
-              ...customer,
-              billDate: lastPurchase?.date || customer.createdAt || today,
-              transactions: data.transactions || [],
-            };
-          } catch {
-            return { ...customer, billDate: today, transactions: [] };
-          }
-        })
-    );
-    
-    // Sort by outstanding descending
-    customersWithDetails.sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0));
-    
     // ===== SUMMARY TABLE =====
-    const summaryTableData = customersWithDetails.map((customer) => [
+    const summaryTableData = pdfCustomers.map((customer) => [
       formatDateForPDF(customer.billDate),
       customer.name.toUpperCase(),
       formatIndianNumber(customer.outstanding || 0),
@@ -305,17 +301,14 @@ export default function OutstandingPage() {
     doc.rect(114, currentY, 60, 12, 'F');
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    doc.text(formatIndianNumber(totalOutstanding), 144, currentY + 8, { align: 'center' });
+    doc.text(formatIndianNumber(serverTotal), 144, currentY + 8, { align: 'center' });
     
     // ===== CUSTOMER-WISE DETAILS SECTION =====
-    // Start on a new page for detailed breakdown
     doc.addPage();
     
-    // Draw top blue border on new page
     doc.setFillColor(0, 128, 192);
     doc.rect(10, 10, pageWidth - 20, 3, 'F');
     
-    // Section title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 128, 128);
@@ -323,46 +316,10 @@ export default function OutstandingPage() {
     
     currentY = 35;
     
-    // Helper: determine which purchases contribute to the outstanding
-    const getContributingPurchases = (transactions) => {
-      // Sort by date ascending (oldest first) to walk through chronologically
-      const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Render each customer's section using server-calculated data
+    for (let i = 0; i < pdfCustomers.length; i++) {
+      const customer = pdfCustomers[i];
       
-      // Build a list of purchases with remaining amounts
-      const purchases = [];
-      
-      for (const txn of sorted) {
-        if (txn.type === 'CUSTOMER_PURCHASE') {
-          purchases.push({
-            date: txn.date,
-            description: txn.description || '-',
-            originalAmount: txn.amount,
-            remaining: txn.amount,
-          });
-        } else if (txn.type === 'PAYMENT_RECEIVED') {
-          // Apply payment to oldest purchases first (FIFO)
-          let paymentLeft = txn.amount;
-          for (const purchase of purchases) {
-            if (paymentLeft <= 0) break;
-            if (purchase.remaining <= 0) continue;
-            
-            const applied = Math.min(paymentLeft, purchase.remaining);
-            purchase.remaining -= applied;
-            paymentLeft -= applied;
-          }
-        }
-      }
-      
-      // Return purchases that still have remaining amount (contributing to outstanding)
-      return purchases.filter(p => p.remaining > 0.01);
-    };
-    
-    // Render each customer's section
-    for (let i = 0; i < customersWithDetails.length; i++) {
-      const customer = customersWithDetails[i];
-      const contributingPurchases = getContributingPurchases(customer.transactions);
-      
-      // Check if we need a new page (need at least 60px for header + one row)
       if (currentY > pageHeight - 60) {
         doc.addPage();
         doc.setFillColor(0, 128, 192);
@@ -381,9 +338,8 @@ export default function OutstandingPage() {
       
       currentY += 14;
       
-      if (contributingPurchases.length > 0) {
-        // Contributing purchases table
-        const purchaseRows = contributingPurchases.map(p => [
+      if (customer.contributingPurchases.length > 0) {
+        const purchaseRows = customer.contributingPurchases.map(p => [
           formatDateShort(p.date),
           calculateDays(p.date).toString(),
           formatIndianNumber(p.originalAmount),
@@ -422,7 +378,6 @@ export default function OutstandingPage() {
         
         currentY = doc.lastAutoTable.finalY + 10;
       } else {
-        // No contributing purchases found
         doc.setFontSize(9);
         doc.setFont('helvetica', 'italic');
         doc.setTextColor(150, 150, 150);
@@ -540,6 +495,7 @@ export default function OutstandingPage() {
               <h3 style={{ fontSize: '1rem', marginBottom: '1rem', marginTop: '1.5rem' }}>Transaction History</h3>
 
               {customerData.transactions.length > 0 ? (
+                <>
                 <div className="table-container">
                   <table>
                     <thead>
@@ -581,6 +537,18 @@ export default function OutstandingPage() {
                     </tbody>
                   </table>
                 </div>
+                {customerData.transactions.length < customerData.total && (
+                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={loadMoreTransactions}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? 'Loading...' : 'Load More Transactions'}
+                    </button>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="empty-state">
                   <div className="empty-state-icon">📋</div>
