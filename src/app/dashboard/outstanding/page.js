@@ -164,6 +164,7 @@ export default function OutstandingPage() {
     
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const today = new Date();
     
     // Format date as DD-MM-YYYY
@@ -175,12 +176,30 @@ export default function OutstandingPage() {
         year: 'numeric',
       }).replace(/\//g, '-');
     };
+
+    // Format date with month name for detail tables
+    const formatDateShort = (date) => {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    };
     
     // Calculate days difference
     const calculateDays = (date) => {
       const billDate = new Date(date);
       const diffTime = Math.abs(today - billDate);
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    // Format number with Indian comma system
+    const formatIndianNumber = (num) => {
+      return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(num);
     };
     
     // Draw top blue border
@@ -203,52 +222,41 @@ export default function OutstandingPage() {
     doc.setTextColor(128, 0, 128); // Purple color
     doc.text(formatDateForPDF(today), pageWidth - 14, 42, { align: 'right' });
     
-    // Prepare table data with bill dates and days calculation
-    // We need to fetch the last transaction date for each customer
-    const customersWithBillDate = await Promise.all(
+    // Fetch full data for all customers with outstanding > 0
+    const customersWithDetails = await Promise.all(
       customers
         .filter(c => (c.outstanding || 0) > 0)
         .map(async (customer) => {
-          // Fetch customer details to get last transaction date
           try {
             const res = await fetch(`/api/customers/${customer._id}`);
             const data = await res.json();
-            // Find the last CUSTOMER_PURCHASE transaction
             const lastPurchase = data.transactions?.find(t => t.type === 'CUSTOMER_PURCHASE');
             return {
               ...customer,
               billDate: lastPurchase?.date || customer.createdAt || today,
+              transactions: data.transactions || [],
             };
           } catch {
-            return { ...customer, billDate: today };
+            return { ...customer, billDate: today, transactions: [] };
           }
         })
     );
     
     // Sort by outstanding descending
-    customersWithBillDate.sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0));
+    customersWithDetails.sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0));
     
-    // Format number with Indian comma system
-    const formatIndianNumber = (num) => {
-      return new Intl.NumberFormat('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(num);
-    };
-    
-    // Table data
-    const tableData = customersWithBillDate.map((customer) => [
+    // ===== SUMMARY TABLE =====
+    const summaryTableData = customersWithDetails.map((customer) => [
       formatDateForPDF(customer.billDate),
       customer.name.toUpperCase(),
       formatIndianNumber(customer.outstanding || 0),
       calculateDays(customer.billDate).toString(),
     ]);
     
-    // Add table
     autoTable(doc, {
       startY: 50,
       head: [['BILL DATE', 'AGENCY', 'OUTSTANDING', 'NO. OF DAYS']],
-      body: tableData,
+      body: summaryTableData,
       theme: 'plain',
       styles: {
         fontSize: 10,
@@ -274,7 +282,6 @@ export default function OutstandingPage() {
         fillColor: [240, 248, 255],
       },
       didDrawCell: (data) => {
-        // Add borders
         if (data.section === 'body' || data.section === 'head') {
           doc.setDrawColor(0, 128, 192);
           doc.setLineWidth(0.5);
@@ -283,27 +290,150 @@ export default function OutstandingPage() {
       },
     });
     
-    // Get the Y position after the table
-    const finalY = doc.lastAutoTable.finalY + 10;
+    // Get the Y position after the summary table
+    let currentY = doc.lastAutoTable.finalY + 10;
     
     // TOTAL OUTSTANDING footer
     doc.setFillColor(0, 128, 128);
-    doc.rect(14, finalY, 100, 12, 'F');
+    doc.rect(14, currentY, 100, 12, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text('TOTAL OUTSTANDING', 20, finalY + 8);
+    doc.text('TOTAL OUTSTANDING', 20, currentY + 8);
     
-    // Total amount box
     doc.setFillColor(0, 100, 0);
-    doc.rect(114, finalY, 60, 12, 'F');
+    doc.rect(114, currentY, 60, 12, 'F');
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    doc.text(new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalOutstanding), 144, finalY + 8, { align: 'center' });
+    doc.text(formatIndianNumber(totalOutstanding), 144, currentY + 8, { align: 'center' });
     
-    // Draw bottom blue border
+    // ===== CUSTOMER-WISE DETAILS SECTION =====
+    // Start on a new page for detailed breakdown
+    doc.addPage();
+    
+    // Draw top blue border on new page
     doc.setFillColor(0, 128, 192);
-    doc.rect(10, finalY + 20, pageWidth - 20, 3, 'F');
+    doc.rect(10, 10, pageWidth - 20, 3, 'F');
+    
+    // Section title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 128, 128);
+    doc.text('CUSTOMER-WISE OUTSTANDING BREAKDOWN', pageWidth / 2, 25, { align: 'center' });
+    
+    currentY = 35;
+    
+    // Helper: determine which purchases contribute to the outstanding
+    const getContributingPurchases = (transactions) => {
+      // Sort by date ascending (oldest first) to walk through chronologically
+      const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      // Build a list of purchases with remaining amounts
+      const purchases = [];
+      
+      for (const txn of sorted) {
+        if (txn.type === 'CUSTOMER_PURCHASE') {
+          purchases.push({
+            date: txn.date,
+            description: txn.description || '-',
+            originalAmount: txn.amount,
+            remaining: txn.amount,
+          });
+        } else if (txn.type === 'PAYMENT_RECEIVED') {
+          // Apply payment to oldest purchases first (FIFO)
+          let paymentLeft = txn.amount;
+          for (const purchase of purchases) {
+            if (paymentLeft <= 0) break;
+            if (purchase.remaining <= 0) continue;
+            
+            const applied = Math.min(paymentLeft, purchase.remaining);
+            purchase.remaining -= applied;
+            paymentLeft -= applied;
+          }
+        }
+      }
+      
+      // Return purchases that still have remaining amount (contributing to outstanding)
+      return purchases.filter(p => p.remaining > 0.01);
+    };
+    
+    // Render each customer's section
+    for (let i = 0; i < customersWithDetails.length; i++) {
+      const customer = customersWithDetails[i];
+      const contributingPurchases = getContributingPurchases(customer.transactions);
+      
+      // Check if we need a new page (need at least 60px for header + one row)
+      if (currentY > pageHeight - 60) {
+        doc.addPage();
+        doc.setFillColor(0, 128, 192);
+        doc.rect(10, 10, pageWidth - 20, 3, 'F');
+        currentY = 20;
+      }
+      
+      // Customer header bar
+      doc.setFillColor(0, 128, 128);
+      doc.rect(14, currentY, pageWidth - 28, 10, 'F');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${i + 1}. ${customer.name.toUpperCase()}`, 18, currentY + 7);
+      doc.text(`Outstanding: Rs ${formatIndianNumber(customer.outstanding || 0)}`, pageWidth - 18, currentY + 7, { align: 'right' });
+      
+      currentY += 14;
+      
+      if (contributingPurchases.length > 0) {
+        // Contributing purchases table
+        const purchaseRows = contributingPurchases.map(p => [
+          formatDateShort(p.date),
+          calculateDays(p.date).toString(),
+          formatIndianNumber(p.originalAmount),
+          formatIndianNumber(p.remaining),
+        ]);
+        
+        autoTable(doc, {
+          startY: currentY,
+          head: [['DATE', 'DAYS PAST', 'BILL AMOUNT', 'PENDING AMOUNT']],
+          body: purchaseRows,
+          theme: 'grid',
+          margin: { left: 18, right: 18 },
+          styles: {
+            fontSize: 9,
+            cellPadding: 3,
+            lineColor: [200, 200, 200],
+            lineWidth: 0.3,
+          },
+          headStyles: {
+            fillColor: [240, 248, 255],
+            textColor: [80, 80, 80],
+            fontStyle: 'bold',
+            fontSize: 8,
+            halign: 'center',
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 30 },
+            1: { halign: 'left' },
+            2: { halign: 'right', textColor: [100, 100, 100] },
+            3: { halign: 'right', fontStyle: 'bold', textColor: [128, 0, 128] },
+          },
+          alternateRowStyles: {
+            fillColor: [250, 250, 255],
+          },
+        });
+        
+        currentY = doc.lastAutoTable.finalY + 10;
+      } else {
+        // No contributing purchases found
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(150, 150, 150);
+        doc.text('No purchase details available', 18, currentY + 5);
+        currentY += 12;
+      }
+    }
+    
+    // Draw bottom blue border on the last page
+    doc.setFillColor(0, 128, 192);
+    doc.rect(10, pageHeight - 15, pageWidth - 20, 3, 'F');
     
     // Save the PDF
     doc.save(`outstanding-report-${formatDateForPDF(today)}.pdf`);
