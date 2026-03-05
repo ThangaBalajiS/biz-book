@@ -394,6 +394,147 @@ export default function OutstandingPage() {
     doc.save(`outstanding-report-${formatDateForPDF(today)}.pdf`);
   };
 
+  const handleDownloadCustomerPDF = async () => {
+    if (!customerData) return;
+
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
+    // Fetch ALL transactions (no pagination) with running balance
+    let allTransactions;
+    try {
+      const res = await fetch(`/api/customers/${selectedCustomer}?limit=99999&skip=0`);
+      const data = await res.json();
+      allTransactions = data.transactions;
+    } catch (err) {
+      console.error('Failed to fetch all transactions:', err);
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const today = new Date();
+
+    const formatDatePDF = (date) => {
+      return new Date(date).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    };
+
+    const formatNum = (num) => {
+      return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(num);
+    };
+
+    // Header
+    doc.setFillColor(0, 128, 192);
+    doc.rect(10, 10, pageWidth - 20, 3, 'F');
+
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.text(customerData.customer.name.toUpperCase(), 14, 26);
+
+    if (customerData.customer.phone) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text(customerData.customer.phone, 14, 33);
+    }
+
+    // Outstanding badge
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(128, 0, 128);
+    doc.text(`Outstanding: Rs ${formatNum(customerData.outstanding)}`, pageWidth - 14, 26, { align: 'right' });
+
+    // Date
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Generated on ${formatDatePDF(today)}`, pageWidth - 14, 33, { align: 'right' });
+
+    // Transactions are returned newest-first, reverse to show oldest-first in PDF
+    const sortedTransactions = [...allTransactions].reverse();
+
+    const tableData = sortedTransactions.map((txn) => [
+      formatDatePDF(txn.date),
+      txn.type === 'PAYMENT_RECEIVED' ? 'Payment' : 'Purchase',
+      txn.description || '-',
+      `${txn.type === 'PAYMENT_RECEIVED' ? '-' : '+'} Rs ${formatNum(txn.amount)}`,
+      `Rs ${formatNum(txn.runningBalance)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['Date', 'Type', 'Description', 'Amount', 'Outstanding']],
+      body: tableData,
+      theme: 'grid',
+      styles: {
+        fontSize: 9,
+        cellPadding: 4,
+        lineColor: [220, 220, 220],
+        lineWidth: 0.3,
+      },
+      headStyles: {
+        fillColor: [0, 128, 128],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 28 },
+        1: { halign: 'center', cellWidth: 24 },
+        2: { halign: 'left' },
+        3: { halign: 'right', cellWidth: 32 },
+        4: { halign: 'right', cellWidth: 32, fontStyle: 'bold' },
+      },
+      alternateRowStyles: {
+        fillColor: [245, 248, 255],
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          if (data.column.index === 1) {
+            data.cell.styles.textColor = data.cell.raw === 'Payment' ? [22, 163, 74] : [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          }
+          if (data.column.index === 3) {
+            data.cell.styles.textColor = data.cell.raw.startsWith('-') ? [22, 163, 74] : [220, 38, 38];
+          }
+          if (data.column.index === 4) {
+            const val = parseFloat(data.cell.raw.replace(/[^\d.-]/g, ''));
+            data.cell.styles.textColor = val > 0 ? [220, 38, 38] : [22, 163, 74];
+          }
+        }
+      },
+    });
+
+    // Footer bar
+    const finalY = doc.lastAutoTable.finalY + 8;
+    doc.setFillColor(0, 128, 128);
+    doc.rect(14, finalY, 80, 10, 'F');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('CURRENT OUTSTANDING', 18, finalY + 7);
+
+    doc.setFillColor(128, 0, 128);
+    doc.rect(94, finalY, 50, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Rs ${formatNum(customerData.outstanding)}`, 119, finalY + 7, { align: 'center' });
+
+    // Bottom border
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFillColor(0, 128, 192);
+    doc.rect(10, pageHeight - 15, pageWidth - 20, 3, 'F');
+
+    doc.save(`${customerData.customer.name}-outstanding-${formatDatePDF(today).replace(/ /g, '-')}.pdf`);
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -480,7 +621,17 @@ export default function OutstandingPage() {
             <div className="card">
               <div className="card-header">
                 <div>
-                  <h2 className="card-title">{customerData.customer.name}</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <h2 className="card-title" style={{ margin: 0 }}>{customerData.customer.name}</h2>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleDownloadCustomerPDF}
+                      title="Download PDF"
+                      style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}
+                    >
+                      📄 PDF
+                    </button>
+                  </div>
                   {customerData.customer.phone && (
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                       {customerData.customer.phone}
@@ -504,6 +655,7 @@ export default function OutstandingPage() {
                         <th>Type</th>
                         <th>Description</th>
                         <th style={{ textAlign: 'right' }}>Amount</th>
+                        <th style={{ textAlign: 'right' }}>Outstanding</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -521,6 +673,11 @@ export default function OutstandingPage() {
                             <span className={`amount ${txn.type === 'PAYMENT_RECEIVED' ? 'credit' : 'debit'}`}>
                               {txn.type === 'PAYMENT_RECEIVED' ? '-' : '+'}
                               {formatCurrency(txn.amount)}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: '600' }}>
+                            <span style={{ color: txn.runningBalance > 0 ? 'var(--danger)' : 'var(--success, #16a34a)' }}>
+                              {formatCurrency(txn.runningBalance)}
                             </span>
                           </td>
                           <td>

@@ -46,15 +46,30 @@ export async function GET(request, { params }) {
       : 0;
     const total = outstandingResult.length > 0 ? outstandingResult[0].total : 0;
 
-    // Get paginated transactions
-    const transactions = await Transaction.find({
+    // Get ALL transactions sorted oldest-first to compute running balance
+    const allTransactions = await Transaction.find({
       userId: session.user.id,
       customerId: id,
-    }).sort({ date: -1 }).skip(skip).limit(limit);
+    }).sort({ date: 1, createdAt: 1 }).lean();
+
+    // Compute running balance for each transaction
+    let runningBalance = 0;
+    const transactionsWithBalance = allTransactions.map((txn) => {
+      if (txn.type === 'CUSTOMER_PURCHASE') {
+        runningBalance += txn.amount;
+      } else if (txn.type === 'PAYMENT_RECEIVED') {
+        runningBalance -= txn.amount;
+      }
+      return { ...txn, runningBalance };
+    });
+
+    // Reverse to get newest-first, then paginate
+    const reversed = transactionsWithBalance.reverse();
+    const paginatedTransactions = reversed.slice(skip, skip + limit);
 
     return NextResponse.json({
       customer,
-      transactions,
+      transactions: paginatedTransactions,
       outstanding,
       total,
     });
