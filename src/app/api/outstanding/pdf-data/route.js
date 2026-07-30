@@ -53,14 +53,22 @@ export async function GET() {
 
         // FIFO: determine which purchases contribute to the outstanding
         const purchases = [];
+        let advanceCredit = 0; // leftover payment not yet matched to a purchase
         for (const txn of transactions) {
           if (txn.type === 'CUSTOMER_PURCHASE') {
-            purchases.push({
+            const purchase = {
               date: txn.date,
               description: txn.description || '-',
               originalAmount: txn.amount,
               remaining: txn.amount,
-            });
+            };
+            // Apply any advance/unmatched payment credit to this purchase first
+            if (advanceCredit > 0) {
+              const applied = Math.min(advanceCredit, purchase.remaining);
+              purchase.remaining -= applied;
+              advanceCredit -= applied;
+            }
+            purchases.push(purchase);
           } else if (txn.type === 'PAYMENT_RECEIVED') {
             let paymentLeft = txn.amount;
             for (const purchase of purchases) {
@@ -70,6 +78,9 @@ export async function GET() {
               purchase.remaining -= applied;
               paymentLeft -= applied;
             }
+            // Carry any leftover forward so it applies to later purchases
+            // instead of being lost (which inflated the per-bill breakdown).
+            advanceCredit += paymentLeft;
           }
         }
 
