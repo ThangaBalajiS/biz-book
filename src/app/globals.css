@@ -751,3 +751,118 @@ tbody tr:last-child td {
     margin-bottom: 0;
   }
 }
+
+/* Responsive card tables — stack each row into a labeled card on phones.
+   Opt-in: add the `cards` class to a `.table-container`. Each <td> should
+   carry a `data-label` (use data-label="" for action/blank cells). */
+@media (max-width: 640px) {
+  .table-container.cards {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    -webkit-overflow-scrolling: auto;
+  }
+
+  .table-container.cards table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Visually hide the header row but keep it for screen readers */
+  .table-container.cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .table-container.cards tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .table-container.cards tbody tr {
+    display: block;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 0.25rem 0.875rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .table-container.cards tbody tr:hover {
+    background-color: var(--bg-card);
+  }
+
+  .table-container.cards tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    white-space: normal;
+    text-align: right;
+    font-size: 0.875rem;
+  }
+
+  .table-container.cards tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .table-container.cards tbody td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    text-align: left;
+  }
+
+  /* Cells with no label (action buttons, blank) */
+  .table-container.cards tbody td[data-label=""] {
+    justify-content: flex-end;
+  }
+
+  .table-container.cards tbody td[data-label=""]::before {
+    display: none;
+  }
+
+  /* Hide cells that render nothing (e.g. the empty credit/debit column) */
+  .table-container.cards tbody td:empty {
+    display: none;
+  }
+
+  /* Footer total row shown as its own highlighted card */
+  .table-container.cards tfoot tr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+    padding: 0.875rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    font-weight: 700;
+  }
+
+  .table-container.cards tfoot td {
+    border: none;
+    padding: 0;
+    white-space: nowrap;
+  }
+
+  .table-container.cards tfoot td::before {
+    display: none;
+  }
+}

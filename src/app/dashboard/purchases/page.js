@@ -175,7 +175,7 @@ export default function PurchasesPage() {
         </div>
         
         {currentPurchases.length > 0 ? (
-          <div className="table-container">
+          <div className="table-container cards">
             <table>
               <thead>
                 <tr>
@@ -188,14 +188,14 @@ export default function PurchasesPage() {
               <tbody>
                 {currentPurchases.map((txn) => (
                   <tr key={txn._id}>
-                    <td>{formatDate(txn.date)}</td>
+                    <td data-label="Date">{formatDate(txn.date)}</td>
                     {activeTab === 'customer' && (
-                      <td>
+                      <td data-label="Customer">
                         <strong>{txn.customerId?.name || '-'}</strong>
                       </td>
                     )}
-                    <td>{txn.description || '-'}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td data-label="Description">{txn.description || '-'}</td>
+                    <td data-label="Amount" style={{ textAlign: 'right' }}>
                       <span className="amount">{formatCurrency(txn.amount)}</span>
                     </td>
                   </tr>

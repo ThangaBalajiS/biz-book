@@ -325,7 +325,7 @@ export default function SettingsPage() {
           </div>
 
           {customers.length > 0 ? (
-            <div className="table-container">
+            <div className="table-container cards">
               <table>
                 <thead>
                   <tr>
@@ -337,9 +337,9 @@ export default function SettingsPage() {
                 <tbody>
                   {customers.map((customer) => (
                     <tr key={customer._id}>
-                      <td><strong>{customer.name}</strong></td>
-                      <td>{customer.phone || '-'}</td>
-                      <td>
+                      <td data-label="Name"><strong>{customer.name}</strong></td>
+                      <td data-label="Phone">{customer.phone || '-'}</td>
+                      <td data-label="">
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                           <button
                             className="btn btn-icon btn-secondary"

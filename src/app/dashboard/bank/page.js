@@ -188,7 +188,7 @@ export default function BankStatementPage() {
         <h2 className="card-title" style={{ marginBottom: '1rem' }}>Transactions</h2>
         
         {transactionsWithBalance.length > 0 ? (
-          <div className="table-container">
+          <div className="table-container cards">
             <table>
               <thead>
                 <tr>
@@ -205,8 +205,8 @@ export default function BankStatementPage() {
                   const isCredit = ['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type);
                   return (
                     <tr key={txn._id}>
-                      <td>{formatDate(txn.date)}</td>
-                      <td>
+                      <td data-label="Date">{formatDate(txn.date)}</td>
+                      <td data-label="Details">
                         <div>
                           <span className={`badge ${isCredit ? 'badge-success' : 'badge-danger'}`} style={{ marginRight: '0.5rem' }}>
                             {getTypeLabel(txn.type)}
@@ -215,22 +215,22 @@ export default function BankStatementPage() {
                           {txn.description && <span style={{ color: 'var(--text-secondary)' }}> - {txn.description}</span>}
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td data-label="Credit" style={{ textAlign: 'right' }}>
                         {isCredit && (
                           <span className="amount credit">+{formatCurrency(txn.amount)}</span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td data-label="Debit" style={{ textAlign: 'right' }}>
                         {!isCredit && (
                           <span className="amount debit">-{formatCurrency(txn.amount)}</span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td data-label="Balance" style={{ textAlign: 'right' }}>
                         <span className="amount">
                           {formatCurrency(txn.runningBalance)}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="">
                         {['BANK_CREDIT', 'BANK_DEBIT'].includes(txn.type) && (
                           <button
                             className="btn btn-icon btn-secondary"

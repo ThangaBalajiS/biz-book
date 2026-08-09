@@ -647,7 +647,7 @@ export default function OutstandingPage() {
 
               {customerData.transactions.length > 0 ? (
                 <>
-                <div className="table-container">
+                <div className="table-container cards">
                   <table>
                     <thead>
                       <tr>
@@ -662,25 +662,25 @@ export default function OutstandingPage() {
                     <tbody>
                       {customerData.transactions.map((txn) => (
                         <tr key={txn._id}>
-                          <td>{formatDate(txn.date)}</td>
-                          <td>
+                          <td data-label="Date">{formatDate(txn.date)}</td>
+                          <td data-label="Type">
                             <span className={`badge ${txn.type === 'PAYMENT_RECEIVED' ? 'badge-success' : 'badge-danger'}`}>
                               {txn.type === 'PAYMENT_RECEIVED' ? 'Payment' : 'Purchase'}
                             </span>
                           </td>
-                          <td>{txn.description || '-'}</td>
-                          <td style={{ textAlign: 'right' }}>
+                          <td data-label="Description">{txn.description || '-'}</td>
+                          <td data-label="Amount" style={{ textAlign: 'right' }}>
                             <span className={`amount ${txn.type === 'PAYMENT_RECEIVED' ? 'credit' : 'debit'}`}>
                               {txn.type === 'PAYMENT_RECEIVED' ? '-' : '+'}
                               {formatCurrency(txn.amount)}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: '600' }}>
+                          <td data-label="Outstanding" style={{ textAlign: 'right', fontWeight: '600' }}>
                             <span style={{ color: txn.runningBalance > 0 ? 'var(--danger)' : 'var(--success, #16a34a)' }}>
                               {formatCurrency(txn.runningBalance)}
                             </span>
                           </td>
-                          <td>
+                          <td data-label="">
                             <button
                               className="btn btn-icon btn-secondary"
                               onClick={() => handleDelete(txn._id)}

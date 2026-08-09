@@ -137,7 +137,7 @@ export default function DashboardPage() {
         </div>
 
         {data?.recentTransactions?.length > 0 ? (
-          <div className="table-container">
+          <div className="table-container cards">
             <table>
               <thead>
                 <tr>
@@ -150,18 +150,18 @@ export default function DashboardPage() {
               <tbody>
                 {data.recentTransactions.map((txn) => (
                   <tr key={txn._id}>
-                    <td>{formatDate(txn.date)}</td>
-                    <td>
+                    <td data-label="Date">{formatDate(txn.date)}</td>
+                    <td data-label="Type">
                       <span className={`badge ${getTransactionBadge(txn.type)}`}>
                         {getTransactionLabel(txn.type)}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Description">
                       {txn.customerId?.name && <strong>{txn.customerId.name}</strong>}
                       {txn.customerId?.name && txn.description && ' - '}
                       {txn.description || '-'}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td data-label="Amount" style={{ textAlign: 'right' }}>
                       <span className={`amount ${['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type) ? 'credit' : 'debit'}`}>
                         {['PAYMENT_RECEIVED', 'BANK_CREDIT'].includes(txn.type) ? '+' : '-'}
                         {formatCurrency(txn.amount)}
